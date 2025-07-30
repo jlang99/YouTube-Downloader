@@ -10,5 +10,5 @@ The program provides the User with 2 entry boxes, which contain the default save
 **This file must remain in the same folder/directory as the YouTube Downloader.exe file**
 
 # Getting the Icon to Work
-You will need to download the .ico file, or create your own with [https://www.icoconverter.com/](url) and name it "YouTube". The YouTube.ico file is initially expected to be in the same folder/directory as the main .exe file.
+You will need to download the YouTube.ico file, or create your own with [https://www.icoconverter.com/](url) and name it "YouTube". The YouTube.ico file is initially expected to be in the same folder/directory as the YouTube Downloader.exe file.
 The Icon path can only be changed by manually rewriting the file path in the Youtube Downloader Settings.json file.
