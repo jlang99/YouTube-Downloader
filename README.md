@@ -2,7 +2,7 @@
 Downloads Youtube Videos as Highest Video Quality or Audio Only
 
 # Bare Minimum Needs
-You only need the .exe at a minimum to operate this program.
+You only need the YouTube Downloader.exe at a minimum to operate this program.
 
 # Settings File
 I have provided an example settings file, but the program will generate one specific to your file environment. I have only tested this on windows 11, but I expect it to work on all windows systems. 
