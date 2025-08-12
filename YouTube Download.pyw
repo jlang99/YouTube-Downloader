@@ -165,6 +165,7 @@ lbl.pack(in_=top_frame)
 
 linkstr = Entry(root, textvariable= link_var, justify=LEFT, width= 100)
 linkstr.pack(in_=top_frame, fill=X, pady=(0, 10))
+linkstr.bind('<Return>', lambda event: download())
 
 video_path_label = Label(root, text="Video Save Path:")
 video_path_label.pack(in_=top_frame, anchor=W)
