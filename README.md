@@ -1,9 +1,6 @@
 # YouTube Downloader
 Downloads Youtube Videos as Highest Video Quality or Audio Only
 
-# Feature Updates
-I added the ability to use the enter key to submit the links, rather than having to click the button. I have not recompiled the python script into an .exe, so the current .exe will not have this feature. 
-
 # Bare Minimum Needs
 You only need the YouTube Downloader.exe at a minimum to operate this program.
 
