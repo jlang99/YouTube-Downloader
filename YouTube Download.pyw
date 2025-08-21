@@ -1,3 +1,4 @@
+import threading
 from pytubefix import YouTube
 from tkinter import *
 from tkinter import scrolledtext, messagebox
@@ -11,7 +12,6 @@ import time
 from io import BytesIO
 from PIL import Image, ImageTk
 
-
 def download():
     submit.config(state=DISABLED)
     output_box.config(state=NORMAL)
@@ -19,21 +19,15 @@ def download():
     
     try:
         link = link_var.get()
-
+        
         def on_progress_gui(stream, chunk, bytes_remaining):
             total_size = stream.filesize
             bytes_downloaded = total_size - bytes_remaining
             percentage = (bytes_downloaded / total_size) * 100
             
-            output_box.delete("progress.first", "progress.last")
-            
-            bar_length = 40
-            filled_len = int(round(bar_length * percentage / 100))
-            bar = '█' * filled_len + ' ' * (bar_length - filled_len)
-            
-            output_box.insert(END, f'|{bar}| {percentage:.1f}%\n', "progress")
-            output_box.see(END)
-            root.update_idletasks()
+            # Use root.after() to safely update the GUI from a different thread
+            # This schedules the update to happen in the main thread
+            root.after(0, update_progress, percentage)
 
         yt = YouTube(link, on_progress_callback=on_progress_gui)
         
@@ -43,52 +37,73 @@ def download():
             response = requests.get(thumbnail_url)
             img_data = response.content
             img = Image.open(BytesIO(img_data))
-
-            # Resize image to fit in the box
             base_width = 160
             w_percent = (base_width / float(img.size[0]))
             h_size = int((float(img.size[1]) * float(w_percent)))
             img = img.resize((base_width, h_size), Image.Resampling.LANCZOS)
-
             photo = ImageTk.PhotoImage(img)
-            output_box.image = photo  # Keep a reference!
-            output_box.image_create(END, image=photo)
-            output_box.insert(END, '\n\n')
+            root.after(0, display_thumbnail, photo) # Safely update thumbnail
+            
         except Exception as e:
-            output_box.insert(END, f"Could not load thumbnail: {e}\n")
+            root.after(0, lambda: output_box.insert(END, f"Could not load thumbnail: {e}\n"))
         
-        output_box.insert(END, f"Title: {yt.title}\n")
+        root.after(0, lambda: output_box.insert(END, f"Title: {yt.title}\n"))
 
         if audio.get():
-            output_box.insert(END, "Downloading audio only...\n")
+            root.after(0, lambda: output_box.insert(END, "Downloading audio only...\n"))
             yd = yt.streams.filter(only_audio=True).first()
             direct = audio_path_var.get()
         else:
-            output_box.insert(END, "Downloading highest resolution video...\n")
+            root.after(0, lambda: output_box.insert(END, "Downloading highest resolution video...\n"))
             yd = yt.streams.get_highest_resolution()
             direct = video_path_var.get()
 
-        output_box.insert(END, "\n", "progress") # Initialize the progress line
-        root.update_idletasks()
-
-        start_time = time.perf_counter()
-
-        yd.download(direct)
+        root.after(0, lambda: output_box.insert(END, "\n", "progress"))
         
+        start_time = time.perf_counter()
+        yd.download(direct)
         end_time = time.perf_counter()
         duration = end_time - start_time
 
-        output_box.delete("progress.first", "progress.last")
-        completion_msg = f"Download complete in {duration:.2f} seconds!\nSaved to: {direct}"
-        output_box.insert(END, f"\n{completion_msg}\n")
-
+        root.after(0, on_download_complete, duration, direct)
     except Exception as e:
-        output_box.insert(END, f"\nAn error occurred: {e}\n")
+        root.after(0, lambda: output_box.insert(END, f"\nAn error occurred: {e}\n"))
     finally:
-        submit.config(state=NORMAL)
-        link_var.set("")
-        output_box.config(state=DISABLED)
-        output_box.see(END)
+        root.after(0, reset_gui)
+        
+def start_download_thread():
+    # Create and start a new thread for the download function
+    download_thread = threading.Thread(target=download, daemon=True)
+    download_thread.start()
+    
+def update_progress(percentage):
+    """Safely updates the progress bar in the main thread."""
+    output_box.delete("progress.first", "progress.last")
+    bar_length = 40
+    filled_len = int(round(bar_length * percentage / 100))
+    bar = '█' * filled_len + ' ' * (bar_length - filled_len)
+    output_box.insert(END, f'|{bar}| {percentage:.1f}%\n', "progress")
+    output_box.see(END)
+
+def display_thumbnail(photo):
+    """Safely displays the thumbnail in the main thread."""
+    output_box.image = photo
+    output_box.image_create(END, image=photo)
+    output_box.insert(END, '\n\n')
+
+def on_download_complete(duration, direct):
+    """Safely handles post-download tasks in the main thread."""
+    output_box.delete("progress.first", "progress.last")
+    completion_msg = f"Download complete in {duration:.2f} seconds!\nSaved to: {direct}"
+    output_box.insert(END, f"\n{completion_msg}\n")
+
+def reset_gui():
+    """Safely resets the GUI elements in the main thread."""
+    submit.config(state=NORMAL)
+    link_var.set("")
+    output_box.config(state=DISABLED)
+    output_box.see(END)
+
     
 #Sets the Image to the Taskbar
 myappid = 'YT.DL.APP'
@@ -142,7 +157,7 @@ atexit.register(save_settings)
 
 settings = load_settings()
 
-#Standard Tkinter type GUI Build
+# Standard Tkinter type GUI Build
 root = Tk()
 link_var=StringVar()
 video_path_var = StringVar(value=settings.get("video_path"))
@@ -150,10 +165,8 @@ audio_path_var = StringVar(value=settings.get("audio_path"))
 
 root.title("YouTube Downloader")
 root.geometry("600x450")
-# This block is only for when ran as .py file. 
-#Pyinstaller loads the icon into the .exe file. 
 try:
-    root.iconbitmap(settings.get('icon_path')) #Sets icon to the one set from Settings File. 
+    root.iconbitmap(settings.get('icon_path'))
 except Exception as e:
     print(f"Error loading icon: {e}")
 
@@ -165,7 +178,7 @@ lbl.pack(in_=top_frame)
 
 linkstr = Entry(root, textvariable= link_var, justify=LEFT, width= 100)
 linkstr.pack(in_=top_frame, fill=X, pady=(0, 10))
-linkstr.bind('<Return>', lambda event: download())
+linkstr.bind('<Return>', lambda event: start_download_thread()) # Changed this line
 
 video_path_label = Label(root, text="Video Save Path:")
 video_path_label.pack(in_=top_frame, anchor=W)
@@ -187,7 +200,8 @@ activity_log_label.pack(padx=10, pady=(10, 0), anchor=W)
 output_box = scrolledtext.ScrolledText(root, wrap=WORD, height=10, state=DISABLED)
 output_box.pack(pady=(2, 10), padx=10, fill=BOTH, expand=True)
 
-submit = Button(root, command=download, text="Submit", bg='#FF9999', font=('Calibiri', 14, 'bold'))
+submit = Button(root, command=start_download_thread, text="Submit", bg='#FF9999', font=('Calibiri', 14, 'bold')) # Changed this line
 submit.pack(fill='x', expand=True, padx=10, pady=(0, 10))
-#Tkinter Start
+
+# Tkinter Start
 root.mainloop()
